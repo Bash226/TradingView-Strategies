@@ -1,0 +1,47 @@
+//@version=5
+strategy("London 1H Start – 5m First Candle (Day Bias)", overlay=true, initial_capital=100000, default_qty_type=strategy.percent_of_equity, default_qty_value=1)
+
+var float firstHigh = na
+var float firstLow  = na
+var bool  firstBull = false
+var bool  traded    = false
+
+// DAY BIAS
+htfClose = request.security(syminfo.tickerid, "60", close)
+htfOpen  = request.security(syminfo.tickerid, "60", open)
+bullBias = htfClose > htfOpen
+bearBias = htfClose < htfOpen
+
+// LONDON SESSION
+londonSession = "1300-2100"
+inLondon = not na(time(timeframe.period, londonSession, "Asia/Karachi"))
+
+// NEW HOUR
+isNewHour = ta.change(time("60")) != 0
+barsSinceHour = ta.barssince(isNewHour)
+
+if isNewHour
+    firstHigh := na
+    firstLow := na
+    firstBull := false
+    traded := false
+
+// FIRST 5m candle
+if barsSinceHour == 0
+    firstHigh := high
+    firstLow := low
+    firstBull := close > open
+
+risk = firstHigh - firstLow
+
+// LONG (London + day bias)
+if barsSinceHour == 0 and not traded and firstBull and inLondon and bullBias
+    strategy.entry("Long", strategy.long)
+    strategy.exit("LongExit", "Long", stop=firstLow, limit=close + risk * 2)
+    traded := true
+
+// SHORT (London + day bias)
+if barsSinceHour == 0 and not traded and not firstBull and inLondon and bearBias
+    strategy.entry("Short", strategy.short)
+    strategy.exit("ShortExit", "Short", stop=firstHigh, limit=close - risk * 2)
+    traded := true
