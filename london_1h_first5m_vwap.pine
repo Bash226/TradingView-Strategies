@@ -1,0 +1,44 @@
+//@version=5
+strategy("London 1H Start – 5m First Candle (VWAP)", overlay=true, initial_capital=100000, default_qty_type=strategy.percent_of_equity, default_qty_value=1)
+
+var float firstHigh = na
+var float firstLow  = na
+var bool  firstBull = false
+var bool  traded    = false
+
+// VWAP
+vwapValue = ta.vwap(close)
+
+// LONDON SESSION
+londonSession = "1300-2100"
+inLondon = not na(time(timeframe.period, londonSession, "Asia/Karachi"))
+
+// NEW HOUR
+isNewHour = ta.change(time("60")) != 0
+barsSinceHour = ta.barssince(isNewHour)
+
+if isNewHour
+    firstHigh := na
+    firstLow := na
+    firstBull := false
+    traded := false
+
+// FIRST 5m candle
+if barsSinceHour == 0
+    firstHigh := high
+    firstLow := low
+    firstBull := close > open
+
+risk = firstHigh - firstLow
+
+// LONG (VWAP filter)
+if barsSinceHour == 0 and not traded and firstBull and inLondon and close > vwapValue
+    strategy.entry("Long", strategy.long)
+    strategy.exit("LongExit", "Long", stop=firstLow, limit=close + risk * 2)
+    traded := true
+
+// SHORT (VWAP filter)
+if barsSinceHour == 0 and not traded and not firstBull and inLondon and close < vwapValue
+    strategy.entry("Short", strategy.short)
+    strategy.exit("ShortExit", "Short", stop=firstHigh, limit=close - risk * 2)
+    traded := true
